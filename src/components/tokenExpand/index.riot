@@ -1,0 +1,358 @@
+<token-expand>
+
+    <div class="tab-content">
+        <div class="tab-header">
+            <div class="{ props.stateTab ? 'tab-enabled' : 'tab-disabled' }" onclick={ (e) => setStateTab(e) }>
+                BORROW
+            </div>
+            <div class="{ props.stateTab ? 'tab-disabled' : 'tab-enabled' }" onclick={ (e) => setStateTab(e) }>
+                REPAY
+            </div>
+        </div>
+        <div class="tab-body form-wrap-input">
+            <div class="tab-input-group">
+                <div class="flex-group">
+                    <div class="col-60 color-gray">COLLATERAL</div>
+                    <div class="col-40 text-right">
+                        <div class="cursor-pointer">
+                            { props.token.displaySymbol() }
+                            <span class="triangle-down"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <input type="number"
+                           id="deposit-{ props.token.symbol }"
+                           step="{this.formatDecimalLimit(props.token.decimals)}"
+                           oninput={ updateTokenDeposit }
+                           placeholder="{ props.stateTab ? 'Deposit ' : 'Withdraw' } { props.token.displaySymbol() }"
+                    >
+                    <label class="form-wrap-max-button " onclick={ setMaxTokenDeposit }>Max</label>
+                </div>
+                <button onclick={ (e) => deposit(e, props.token, props.tokenDeposit) }>
+                    { props.stateTab ? 'DEPOSIT' : 'WITHDRAW' }
+                </button>
+            </div>
+            <div class="tab-input-group">
+                <div class="flex-group">
+                    <div class="col-60 color-gray">BORROW</div>
+                    <div class="col-40 text-right">
+                        <div class="cursor-pointer">
+                            { props.lendingPair.tokenB.displaySymbol() }
+                            <span class="triangle-down"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <input type="number"
+                           id="withdraw-{ props.token.symbol }"
+                           step="{this.formatDecimalLimit(props.token.decimals)}"
+                           oninput={ updateTokenWithdraw }
+                           placeholder="{ props.stateTab ? 'Borrow ' : 'Withdraw' } { props.lendingPair.tokenB.displaySymbol() }"
+                    >
+                    <label class="form-wrap-max-button" onclick={ setMaxTokenWithdraw }>Max</label>
+                </div>
+                <button onclick={ (e) => withdraw(e, props.token, props.tokenWithdraw) }>
+                    { props.stateTab ? 'BORROW' : 'REPAY' }
+                </button>
+            </div>
+        </div>
+<!--        <table class="table-expanded bordered">-->
+<!--            <tr>-->
+<!--                <th class="col-60">Supplied</th>-->
+<!--                <td class="col-40 text-right">{ this.newSupplied() }</td>-->
+<!--            </tr>-->
+<!--            <tr>-->
+<!--                <th class="col-60">-->
+<!--                    <div>Borrowed</div>-->
+<!--                </th>-->
+<!--                <td class="col-40 text-right"><span>{ this.newBorrowed() }</span><span class="no-margin" if={ showBorrowLimit() }> / { this.newBorrowLimit() }</span></td>-->
+<!--            </tr>-->
+<!--            <tr>-->
+<!--                <th class="col-20">Claimable</th>-->
+<!--                <td class="col-60 text-right">{ this.moneyFormat(props.token.pendingTotalReward) } <span class="text-gray">WILD</span></td>-->
+<!--                <td class="col-20 text-right">-->
+<!--                    <span class="text-underline clickable no-margin" onclick={ claim }>CLAIM</span>-->
+<!--                </td>-->
+<!--            </tr>-->
+<!--            <tr>-->
+<!--                <th class="col-60">-->
+<!--                    <div>Supply interest (earn)</div>-->
+<!--                </th>-->
+<!--                <td class="col-40 text-right">-->
+<!--                    +{ this.moneyFormat(props.token.supplyRate, 1) }%-->
+<!--                </td>-->
+<!--            </tr>-->
+<!--            <tr>-->
+<!--                <th class="col-60">-->
+<!--                    <div>Borrow interest (pay)</div>-->
+<!--                </th>-->
+<!--                <td class="col-40 text-right">-->
+<!--                    -{ this.moneyFormat(props.token.borrowRate, 1) }%-->
+<!--                </td>-->
+<!--            </tr>-->
+<!--            <tr>-->
+<!--                <th class="col-60">-->
+<!--                    <div>Borrow reward (earn)</div>-->
+<!--                </th>-->
+<!--                <td class="col-40 apr-col">-->
+<!--                    <div class="wild-reward" if={ props.token.borrowApr.isGreaterThan(0) }>-->
+<!--                        <div class="logo"></div>-->
+<!--                        <div>+{ this.moneyFormat(props.token.borrowApr, 1) }%</div>-->
+<!--                    </div>-->
+<!--                </td>-->
+<!--            </tr>-->
+<!--            <tr>-->
+<!--                <th class="col-20">Reserves</th>-->
+<!--                <td id="reserve-{ props.token.symbol }" class="col-80 text-right">{ this.newReserve() }</td>-->
+<!--            </tr>-->
+<!--            <tr>-->
+<!--                <th class="col-20">Utilization</th>-->
+<!--                <td id="utilization-{ props.token.symbol }" class="col-80 text-right" if={ props.token.decimals == 18 }>-->
+<!--                    { this.moneyFormat(props.token.totalDebt) } / { this.moneyFormat(props.token.lpTotalSupply) } ({props.token.utilization }%)-->
+<!--                </td>-->
+<!--                <td id="utilization-{ props.token.symbol }" class="col-80 text-right" if={ props.token.decimals != 18 }>-->
+<!--                    NA-->
+<!--                </td>-->
+<!--            </tr>-->
+<!--            <tr if={ showDepositCap() }>-->
+<!--                <th class="col-25">Deposit cap</th>-->
+<!--                <td id="deposit-cap-{ props.token.symbol }" class="col-35">-->
+<!--                    { this.moneyFormat(props.token.lpTotalSupply) } / { this.moneyFormat(props.token.depositCapLimit) }-->
+<!--                </td>-->
+<!--                <td class="col-40"></td>-->
+<!--            </tr>-->
+<!--            <tr if={ showBorrowCap() }>-->
+<!--                <th class="col-25">Borrow cap</th>-->
+<!--                <td id="borrow-cap-{ props.token.symbol }" class="col-35">-->
+<!--                    { this.moneyFormat(props.token.totalDebt) } / { this.moneyFormat(props.token.borrowCapLimit) }-->
+<!--                </td>-->
+<!--                <td class="col-40"></td>-->
+<!--            </tr>-->
+<!--        </table>-->
+    </div>
+
+    <script>
+
+        import { accountAddress } from "../../common/web3/Wallet";
+        import { BigNumber } from "bignumber.js";
+        import { Erc20Token } from "../../common/contracts/Erc20Token";
+
+        export default {
+
+            onMounted() {
+                this.setBorrowLimit()
+                this.updateTokenBalance()
+                // this.props.setStateTab(false)
+            },
+
+            onBeforeUpdate() {
+
+                this.updateTokenBalance()
+
+                if (this.props.tokenDeposit.isNaN()) {
+                    this.clearTokenDeposit()
+                }
+                if (this.props.tokenWithdraw.isNaN()) {
+                    this.clearTokenWithdraw()
+                }
+            },
+
+            updateTokenDeposit(e) {
+                this.clearTokenWithdraw()
+                this.props.setTokenDeposit(new BigNumber(e.target.value))
+                this.setBorrowLimit()
+            },
+
+            updateTokenWithdraw(e) {
+                this.clearTokenDeposit()
+                this.props.setTokenWithdraw(new BigNumber(e.target.value))
+                // if (this.props.tokenWithdraw.isGreaterThan(this.props.token.reserve)) {
+                //     document.getElementById(`reserve-${this.props.token.symbol}`).classList.add("warning-text")
+                // } else {
+                //     document.getElementById(`reserve-${this.props.token.symbol}`).classList.remove("warning-text")
+                // }
+                this.setBorrowLimit()
+            },
+
+            setMaxTokenDeposit() {
+                this.props.setTokenDeposit(this.getBalance(this.props.token))
+                document.getElementById(`deposit-${this.props.token.symbol}`).value = this.props.tokenDeposit.toString(10)
+                this.setBorrowLimit()
+            },
+
+            setMaxTokenWithdraw() {
+                this.props.setTokenWithdraw(this.props.token.supplied)
+                document.getElementById(`withdraw-${this.props.token.symbol}`).value = this.props.token.supplied.toString(10)
+                this.setBorrowLimit()
+            },
+
+            async setStateTab(e) {
+                this.props.setStateTab(!this.props.stateTab)
+            },
+
+            async deposit(e, token, amount) {
+                if (amount.isGreaterThan(0)) {
+                    await this.props.lendingPair.contract.deposit(
+                        accountAddress,
+                        Erc20Token.convertToETHIfNeeded(token),
+                        amount
+                    )
+                    await this.updateLendingPairInfo()
+
+                    this.props.setTokenWithdraw(new BigNumber(NaN))
+                    this.props.setTokenDeposit(new BigNumber(NaN))
+                }
+            },
+
+            async withdraw(e, token, amount) {
+
+                await this.updateLendingPairInfo()
+
+                if (!this.props.showSafetyWarning() &&
+                    amount.isGreaterThan(0) &&
+                    amount.isLessThanOrEqualTo(token.reserve)) {
+                    await this.props.lendingPair.contract.withdraw(
+                        accountAddress,
+                        Erc20Token.convertToETHIfNeeded(token),
+                        amount
+                    )
+                    await this.updateLendingPairInfo()
+
+                    this.props.setTokenWithdraw(new BigNumber(NaN))
+                    this.props.setTokenDeposit(new BigNumber(NaN))
+                }
+            },
+
+            async updateLendingPairInfo() {
+                await this.props.lendingPair.refresh(accountAddress, this.props.tokenList)
+                this.update()
+            },
+
+            newSupplied() {
+                let original = this.props.token.supplied
+                let borrowed = this.props.token.debt
+
+                let deposit = BigNumber.max(this.normalize(this.props.tokenDeposit).minus(borrowed), new BigNumber(0))
+                let withdraw = BigNumber.min(this.normalize(this.props.tokenWithdraw), original)
+
+                return this.displayNewValue(original, deposit.minus(withdraw))
+            },
+
+            newBorrowed() {
+                let supplied = this.props.token.supplied
+                let borrowed = this.props.token.debt
+
+                let repay = BigNumber.min(this.normalize(this.props.tokenDeposit), borrowed)
+                let extraBorrow = BigNumber.min(supplied.minus(this.normalize(this.props.tokenWithdraw)), new BigNumber(0)).negated()
+
+                return this.displayNewValue(borrowed, extraBorrow.minus(repay))
+            },
+
+            showBorrowLimit() {
+                return this.props.tokenBorrowLimit.isGreaterThan(0.01) ||
+                    this.props.tokenNewBorrowLimit.isGreaterThan(0.01)
+            },
+
+            showDepositCap() {
+                return this.props.token.depositCapLimit.isGreaterThan(0)
+            },
+
+            showBorrowCap() {
+                return this.props.token.borrowCapLimit.isGreaterThan(0)
+            },
+
+            newBorrowLimit() {
+                let original = this.props.tokenBorrowLimit
+                let newBorrowLimit = this.props.tokenNewBorrowLimit
+
+                return this.displayNewValue(original, newBorrowLimit.minus(original))
+            },
+
+            async setBorrowLimit() {
+                let lpBalance = this.props.token.supplied
+                let borrowed = this.props.token.debt
+
+                let deposit = BigNumber.max(this.normalize(this.props.tokenDeposit).minus(borrowed), new BigNumber(0))
+                let withdraw = BigNumber.min(this.normalize(this.props.tokenWithdraw), lpBalance)
+
+                let newLpBalance = lpBalance.plus(deposit).minus(withdraw)
+
+                let otherToken =
+                    this.props.token.address === this.props.lendingPair.tokenA.address ? this.props.lendingPair.tokenB : this.props.lendingPair.tokenA
+
+                this.props.setOtherTokenBorrowLimit(
+                    await this.props.lendingPair.borrowLimit(
+                        this.props.token,
+                        otherToken,
+                        newLpBalance
+                    )
+                )
+            },
+
+            newReserve() {
+                let original = this.props.token.reserve
+                let deposit  = this.normalize(this.props.tokenDeposit)
+                let withdraw = this.normalize(this.props.tokenWithdraw)
+
+                return this.displayNewValue(original, deposit.minus(withdraw))
+            },
+
+            clearTokenDeposit() {
+                document.getElementById(`deposit-${this.props.token.symbol}`).value = null
+            },
+
+            clearTokenWithdraw() {
+                document.getElementById(`withdraw-${this.props.token.symbol}`).value = null
+                // document.getElementById(`reserve-${this.props.token.symbol}`).classList.remove("warning-text")
+            },
+
+            normalize(value) {
+                return value.isNaN() ? new BigNumber(0) : value
+            },
+
+            displayNewValue(current, delta) {
+                let original = current
+                let newValue = original.plus(delta)
+
+                if (!newValue.isNaN() && !original.isEqualTo(newValue)) {
+                    return this.moneyFormat(newValue)
+                } else {
+                    return this.moneyFormat(original)
+                }
+
+            },
+
+            getBalance(token) {
+                let t = this.getToken(token)
+                if (t) {
+                    return t.balance
+                }
+                return new BigNumber(NaN)
+            },
+
+            updateTokenBalance() {
+                let token = this.getToken(this.props.token)
+                if (token) {
+                    this.props.tokenList.refreshTokenInfo(token, accountAddress)
+                }
+            },
+
+            getToken(token) {
+                let t = undefined
+                if (token.symbol === "WETH") {
+                    t = this.props.tokenList.tokens.find(t => t.symbol === "ETH")
+                } else {
+                    t = this.props.tokenList.tokens.find(t => t.address.toLowerCase() === token.address.toLowerCase())
+                }
+                return t
+            },
+            async claim() {
+                await this.props.lendingPair.contract.accrueAccount(accountAddress)
+                await this.props.lendingPair.refresh(accountAddress, this.props.tokenList)
+                this.update()
+            }
+        }
+    </script>
+
+</token-expand>

@@ -1,0 +1,198 @@
+<vault>
+
+    <section class="app-area">
+        <div class="app-content-box">
+            <div class="back">
+                <a class="back-wrapper" onclick={ showVaults }>
+                    <i class="icon icon-arrow-left" />
+                    Back to vaults
+                </a>
+            </div>
+
+            <table if={ state.vault === undefined } class="no-border no-bg">
+                <tr class="loader-row no-border" each={ nothing in Array(3) }>
+                    <td class="loader-box"></td>
+                </tr>
+            </table>
+
+            <div if={ state.vault !== undefined }>
+                <div class="title">{ asset() } vault (wd{ asset() })</div>
+                <p class="info-text">Vaults [BETA] auto-rebalance funds for the best yield. Deposit limit: 250 ETH / vault (total).</p>
+
+                <div class="vault-wrapper">
+                    <div class="app-box">
+                        <div class="app-box-form">
+                            <div class="app-box-tabs">
+                                <a class="app-box-tab-nav active" href="#deposit" onclick={ selectTab }>Deposit</a>
+                                <a class="app-box-tab-nav" href="#withdraw" onclick={ selectTab }>Withdraw</a>
+                            </div>
+                            <div class="app-box-tabs-wrapper">
+                                <div id="deposit-tab" class={`app-box-tab ${state.activeTab === 'deposit' ? 'active' : ''}`}>
+                                    <div class="form-wrap-input">
+                                        <div class="input-group">
+                                            <label class="form-wrap-max-button" onclick={ setMaxDepositAmount }>Max</label>
+                                            <input type="number"
+                                                oninput={ setDepositAmount }
+                                                placeholder="Deposit { asset() } amount"
+                                                id="deposit-amount"
+                                                step="{this.formatDecimalLimit(18)}"
+                                            />
+                                        </div>
+                                        <button class="btn btn-block btn-default btn-primary" onclick={ deposit }>
+                                            Deposit { asset() }
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="withdraw-tab" class={`app-box-tab ${state.activeTab === 'withdraw' ? 'active' : ''}`}>
+                                    <div class="form-wrap-input">
+                                        <div class="input-group">
+                                            <label class="form-wrap-max-button" onclick={ setMaxWithdrawAmount }>Max</label>
+                                            <input type="number"
+                                                oninput={ setWithdrawAmount }
+                                                placeholder="Withdraw { asset() } amount"
+                                                id="withdraw-amount"
+                                                step="{this.formatDecimalLimit(18)}"
+                                            />
+                                        </div>
+                                        <button class="btn btn-block btn-default btn-primary" onclick={ withdraw }>
+                                            Withdraw { asset() }
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="vault-table-wrapper">
+                        <table>
+                            <tr>
+                                <th class="col-50">Current APR</th>
+                                <td class="col-50">{ this.formatNumber(state.vault.apr) }%</td>
+                            </tr>
+                            <tr>
+                                <th class="col-50 projected">
+                                    <span>Projected APR</span>
+                                    <a href="https://wild-credit.gitbook.io/wild-credit/vaults/current-vs-projected-apr" class="question" target="_blank"></a>
+                                </th>
+                                <td class="col-50">{ this.formatNumber(state.vault.projectedApr) }%</td>
+                            </tr>
+                            <tr>
+                                <th class="col-50">Wallet</th>
+                                <td class="col-25">{ this.formatNumber(state.vault.walletBalance) }</td>
+                                <td class="col-25 unit">{ asset() }</td>
+                            </tr>
+                            <tr>
+                                <th class="col-50">Vault</th>
+                                <td class="col-25">{ this.formatNumber(state.vault.vaultBalance) }</td>
+                                <td class="col-25 unit">wd{ asset() }</td>
+                            </tr>
+                            <tr>
+                                <th class="col-50">Claimable</th>
+                                <td class="col-25">{ this.formatNumber(state.vault.claimableBalance) }</td>
+                                <td class="col-25 unit">wd{ asset() }</td>
+                            </tr>
+                            <tr>
+                                <th class="col-50">Deposit cap</th>
+                                <td class="col-50">{ this.formatNumber(state.vault.totalSupply) } / 250</td>
+                            </tr>
+                        </table>
+                        <button
+                            class="btn btn-block btn-default btn-primary"
+                            onclick={ claim }
+                        >
+                            CLAIM EARNED wd{ asset() }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        import {accountAddress} from "../../common/web3/Wallet";
+        import {VaultContract} from "../../common/contracts/VaultContract";
+        import {BigNumber} from "bignumber.js";
+        import {router} from "@riotjs/route"
+
+        export default {
+            state: {
+                activeTab: 'deposit',
+                depositAmount: new BigNumber(NaN),
+                withdrawAmount: new BigNumber(NaN),
+                vault: undefined
+            },
+            onBeforeMount() {
+                this.state.vault = this.props.vaults.find(this.props.vaultAddress)
+            },
+            async onBeforeUpdate() {
+                if (this.state.vault === undefined) {
+                    this.state.vault = this.props.vaults.find(this.props.vaultAddress)
+                }
+
+                if (this.state.vault === undefined && accountAddress !== undefined) {
+                    const that = this
+                    this.props.vaults.refresh(accountAddress)
+                        .then(e => that.update())
+                }
+            },
+            asset() {
+                return this.state.vault.token.displaySymbol()
+            },
+            selectTab(e) {
+                e.preventDefault()
+                const hash = e.target.hash
+                this.state.activeTab = hash.slice(1)
+
+                const els = document.getElementsByClassName('app-box-tab-nav')
+                els.forEach(el => {
+                    el.classList.remove('active')
+                })
+                e.target.classList.add('active')
+
+
+                this.update()
+            },
+            showVaults() {
+                router.push('/#/vaults')
+            },
+            setDepositAmount(e) {
+                this.state.depositAmount = new BigNumber(e.target.value)
+            },
+            setWithdrawAmount(e) {
+                this.state.withdrawAmount = new BigNumber(e.target.value)
+            },
+            async deposit() {
+                await this.state.vault.contract.deposit(this.state.depositAmount, accountAddress)
+                await this.state.vault.refresh(accountAddress)
+                await this.resetInputs()
+            },
+            async withdraw() {
+                await this.state.vault.contract.withdraw(this.state.withdrawAmount, accountAddress)
+                await this.state.vault.refresh(accountAddress)
+                await this.resetInputs()
+            },
+            async claim() {
+                await this.state.vault.contract.claim(accountAddress)
+                await this.state.vault.refresh(accountAddress)
+                await this.resetInputs()
+            },
+            setMaxDepositAmount() {
+                this.state.depositAmount = this.state.vault.walletBalance.multipliedBy(0.95)
+                document.getElementById("deposit-amount").value = this.state.depositAmount
+            },
+            setMaxWithdrawAmount() {
+                this.state.withdrawAmount = this.state.vault.vaultBalance
+                document.getElementById("withdraw-amount").value = this.state.withdrawAmount
+            },
+            async resetInputs() {
+                this.state.depositAmount = new BigNumber(NaN)
+                this.state.withdrawAmount = new BigNumber(NaN)
+
+                document.getElementById("deposit-amount").value = null
+                document.getElementById("withdraw-amount").value = null
+
+                this.update()
+            }
+        }
+    </script>
+
+</vault>

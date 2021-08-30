@@ -1,0 +1,301 @@
+<lending-expand>
+
+	<section class="app-area pair-display-area">
+		<div class="app-content-box">
+			<div>
+				<a class="back-wrapper" onclick={ props.showLendingPairs }>
+					<i class="icon icon-arrow-left"/>
+					Back to lending pairs
+				</a>
+			</div>
+			<div class="form-content" if={ state.lendingPair !== undefined } >
+				<div class="pair-title-section">
+					<h3 class="title">Supply / Borrow { state.lendingPair.tokenA.displaySymbol() }-{ state.lendingPair.tokenB.displaySymbol() }</h3>
+<!--					<div class="top-stats">-->
+<!--						<div class="message">My safety ratio</div>-->
+<!--						<div-->
+<!--							class="ratio { displayedSafetyRatio().isGreaterThan(1.0) ? 'green-ratio' : '' } { displayedSafetyRatio().isLessThan(1.0) ? 'red-ratio' : '' }"-->
+<!--						>-->
+<!--							{ this.formatSafetyRatio(displayedSafetyRatio()) }-->
+<!--						</div>-->
+<!--					</div>-->
+					<div class="top-stats net-apr-box tooltip" if={ !isNaN(netAPR()) }>
+						<span class="tooltip-text">(earnUSD - payUSD) / supplyUSD</span>
+						<div class="message">Net APR</div>
+						<div
+							class="ratio { netAPR().isGreaterThan(1.0) ? 'green-ratio' : '' } { netAPR().isLessThan(1.0) ? 'red-ratio' : '' }"
+						>
+							{ this.formatNumber(netAPR(), 1) }%
+						</div>
+					</div>
+				</div>
+<!--				<p class="form-desc">Deposit one asset and withdraw (borrow) the other. Safety ratio must stay above 1. Minimum borrow amount must be over $1,000 in value.</p>-->
+			</div>
+      		<table if={ state.lendingPair === undefined } class="no-border no-bg">
+				<tr class="loader-row no-border" each={ nothing in Array(3) }>
+				  <td class="loader-box"></td>
+				</tr>
+			</table>
+			<div class="info-content border-bottom-none" if={ state.lendingPair !== undefined }>
+				<token-expand
+					lendingPairs={ props.lendingPairs }
+					lendingPair={ state.lendingPair }
+					tokenList={ props.tokenList }
+					token={ state.lendingPair.tokenA }
+					tokenBorrowLimit={ state.lendingPair.tokenABorrowLimit }
+					tokenNewBorrowLimit={ state.tokenABorrowLimit }
+					setOtherTokenBorrowLimit={ setBBorrowLimit }
+					tokenDeposit={ state.tokenADeposit }
+					tokenWithdraw={ state.tokenAWithdraw }
+					setTokenDeposit={ setTokenADeposit }
+					setTokenWithdraw={ setTokenAWithdraw }
+					showSafetyWarning={ showSafetyWarning }
+					stateTab={ state.isBorrowState }
+					setStateTab={ setStateTab }
+				/>
+				<token-detail
+					lendingPairs={ props.lendingPairs }
+					lendingPair={ state.lendingPair }
+					tokenList={ props.tokenList }
+					token={ state.lendingPair.tokenA }
+					tokenBorrowLimit={ state.lendingPair.tokenABorrowLimit }
+					tokenNewBorrowLimit={ state.tokenABorrowLimit }
+					setOtherTokenBorrowLimit={ setBBorrowLimit }
+					tokenDeposit={ state.tokenADeposit }
+					tokenWithdraw={ state.tokenAWithdraw }
+					setTokenDeposit={ setTokenADeposit }
+					setTokenWithdraw={ setTokenAWithdraw }
+					showSafetyWarning={ showSafetyWarning }
+					safetyRatio={ formatSafetyRatio(displayedSafetyRatio()) }
+				/>
+			</div>
+		</div>
+	</section>
+
+	<script>
+		import { accountAddress } from "../../common/web3/Wallet";
+		import { LendingPair } from "../../common/pairs/LendingPair";
+		import { BigNumber } from "bignumber.js";
+		import TokenExpand from "../tokenExpand/index.riot"
+		import TokenDetail from "../tokenDetail/index.riot"
+
+		export default {
+
+			components: {
+				TokenExpand,
+				TokenDetail
+			},
+
+			state: {
+				lendingPair: undefined,
+				settingPair: false,
+				tokenADeposit: new BigNumber(NaN),
+				tokenBDeposit: new BigNumber(NaN),
+				tokenAWithdraw: new BigNumber(NaN),
+				tokenBWithdraw: new BigNumber(NaN),
+				tokenABorrowLimit: new BigNumber(NaN),
+				tokenBBorrowLimit: new BigNumber(NaN),
+				newSafetyRatio: new BigNumber(NaN),
+				isLiquid: true,
+				isBorrowState: true,
+			},
+
+			onBeforeMount() {
+				this.state.lendingPair = this.props.lendingPairs.find(this.props.pairAddress)
+				if (this.state.lendingPair) {
+					this.fetchLiquidity(this.state.lendingPair.tokenA.address)
+				}
+			},
+
+			async onBeforeUpdate() {
+				if (this.state.lendingPair === undefined) {
+				  	this.state.lendingPair = this.props.lendingPairs.find(this.props.pairAddress)
+				}
+				if (!this.state.settingPair && this.state.lendingPair === undefined && accountAddress !== undefined) {
+					let that = this
+					this.state.settingPair = true
+					let newLendingPair = await LendingPair.buildPairFromAddress(this.props.pairAddress)
+					newLendingPair
+						.refresh(accountAddress, that.props.tokenList)
+						.then(e => that.state.lendingPair = newLendingPair)
+						.then(e => that.update())
+						.then(e => that.props.lendingPairs.pairs.push(newLendingPair))
+				}
+			},
+
+			setTokenADeposit(amount) {
+
+				this.state.newSafetyRatio =
+					this.state.lendingPair.simulateSafetyRate(
+							amount,
+							new BigNumber(0),
+							true
+					)
+
+				this.update({
+					tokenADeposit: amount,
+					tokenBDeposit: new BigNumber(NaN),
+					tokenAWithdraw: new BigNumber(NaN),
+					tokenBWithdraw: new BigNumber(NaN),
+				})
+			},
+
+			setTokenAWithdraw(amount) {
+
+				this.state.newSafetyRatio =
+						this.state.lendingPair.simulateSafetyRate(
+								amount,
+								new BigNumber(0),
+								false
+						)
+
+				this.update({
+					tokenADeposit: new BigNumber(NaN),
+					tokenBDeposit: new BigNumber(NaN),
+					tokenAWithdraw: amount,
+					tokenBWithdraw: new BigNumber(NaN),
+				})
+			},
+
+			setTokenBDeposit(amount) {
+
+				this.state.newSafetyRatio =
+						this.state.lendingPair.simulateSafetyRate(
+								new BigNumber(0),
+								amount,
+								true
+						)
+
+				this.update({
+					tokenADeposit: new BigNumber(NaN),
+					tokenBDeposit: amount,
+					tokenAWithdraw: new BigNumber(NaN),
+					tokenBWithdraw: new BigNumber(NaN),
+				})
+			},
+
+			setTokenBWithdraw(amount) {
+
+				this.state.newSafetyRatio =
+						this.state.lendingPair.simulateSafetyRate(
+								new BigNumber(0),
+								amount,
+								false
+						)
+
+				this.update({
+					tokenADeposit: new BigNumber(NaN),
+					tokenBDeposit: new BigNumber(NaN),
+					tokenAWithdraw: new BigNumber(NaN),
+					tokenBWithdraw: amount,
+				})
+			},
+
+			setABorrowLimit(limit) {
+				this.update({ tokenABorrowLimit: limit, tokenBBorrowLimit: new BigNumber(NaN) })
+			},
+
+			setBBorrowLimit(limit) {
+				this.update({ tokenABorrowLimit: new BigNumber(NaN), tokenBBorrowLimit: limit })
+			},
+
+			setStateTab(state) {
+				this.update({ isBorrowState: state })
+			},
+			
+			formatDepositLimitMessage(token, limit) {
+				let supply = BigNumber.min(token.lpTotalSupply, limit)
+				return `${this.formatNumber(supply)} ${token.symbol} (max: ${this.formatNumber(new BigNumber(limit))} ${token.symbol})`
+			},
+
+			showSafetyWarning() {
+				return false;
+				// let minSafety = 1.25
+				// console.log(parseFloat(this.state.newSafetyRatio))
+
+				// return (
+				// 	(
+				// 		this.state.newSafetyRatio <= minSafety
+				// 	) && (
+				// 		this.state.tokenADeposit.toFixed() === "NaN" &&
+				// 		this.state.tokenBDeposit.toFixed() === "NaN"
+				// 	)
+				// )
+			},
+
+			async fetchLiquidity(tokenAddress) {
+				const minETH = 500;
+
+				let res = await fetch("https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v2", {
+					method: "post",
+
+					body: JSON.stringify({
+						query: `{
+							tokens(where: { id: "${tokenAddress}"}) {
+								derivedETH
+								totalLiquidity
+							}
+						}`,
+					}),
+
+					headers: { "Content-Type": "application/json" },
+				})
+
+				let data = (await res.json()).data.tokens[0]
+
+				if (data === undefined) {
+					this.state.isLiquid = false;
+				} else {
+					let liquidityETH = data.derivedETH * data.totalLiquidity;
+					this.state.isLiquid = liquidityETH >= minETH;
+				}
+
+				this.update()
+			},
+
+			displayedSafetyRatio() {
+				if (this.state.newSafetyRatio.isNaN()) {
+					return this.state.lendingPair.safetyRatio
+				}
+				return this.state.newSafetyRatio
+			},
+
+			netAPR() {
+				let tokenA = this.state.lendingPair.tokenA
+				let tokenB = this.state.lendingPair.tokenB
+
+				let supplyInterestA = (tokenA.supplyRate * tokenA.usdSupplied / 100);
+				let supplyInterestB = (tokenB.supplyRate * tokenB.usdSupplied / 100);
+
+				let borrowInterestA = (tokenA.borrowRate * tokenA.usdDebt / 100);
+				let borrowInterestB = (tokenB.borrowRate * tokenB.usdDebt / 100);
+
+				let supplyRewardA = (tokenA.supplyApr * tokenA.usdSupplied / 100);
+				let supplyRewardB = (tokenB.supplyApr * tokenB.usdSupplied / 100);
+
+				let borrowRewardA = (tokenA.borrowApr * tokenA.usdDebt / 100);
+				let borrowRewardB = (tokenB.borrowApr * tokenB.usdDebt / 100);
+
+				let credit = supplyInterestA + supplyInterestB + supplyRewardA + supplyRewardB + borrowRewardA + borrowRewardB
+				let debit  = borrowInterestA + borrowInterestB
+				let profit = credit - debit
+
+				let supplyUSD = tokenA.usdSupplied.plus(tokenB.usdSupplied)
+
+				return new BigNumber(profit / supplyUSD * 100)
+
+				// earning supply interest rate 150% on $20k (10 ETH)   = + $30k
+				// earning supply reward rate    90% on $20k (10 ETH)   = + $18k
+				// earning borrow reward rate   600% on $10k (10k DAI)  = + $60k
+				// paying borrow interest rate  200% on $10k (10k DAI)  = - $20k
+				// earning total = $30k + $18k  + $60k - $20k = $88k
+
+				// mySupplyUSD = $20k (10 ETH)
+				// netEarnUSD = $88k
+				// netAPR = $88k / $20k * 100 = 440%
+			}
+
+		}
+	</script>
+
+</lending-expand>

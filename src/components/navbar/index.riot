@@ -1,0 +1,89 @@
+<nav-bar>
+    <section id="navbar" class="left-area">
+        <header class="header">
+            <div class="header-item header-top">
+                <a href="#" class="brand-logo"><span>Wild Credit</span></a>
+            </div>
+            <div class="header-item">
+                <a id="lending-nav" class="menu-link section-link" href="#">
+                    Supply / Borrow
+                </a>
+                <a  if={ this.farmingEnabled() }
+                    id="farm-nav" class="menu-link section-link" href="#/farm"
+                >
+                    ETH-WILD Farm
+                </a>
+                <a
+                    if={ this.xWildEnabled() }
+                    id="stake-nav" class="menu-link section-link" href="#/stake"
+                >
+                    Stake WILD
+                </a>
+                <a id="vault-nav" class="menu-link section-link" href="#/vaults">
+                    Vaults
+                </a>
+            </div>
+            <div class="header-item header-bottom">
+                <a class="menu-link" href="https://v2.info.uniswap.org/pair/0xc36068bf159414beb497f8ece08763868149b2fe" target="_blank">Trade WILD</a>
+                <a class="menu-link" href="https://wild-credit.gitbook.io/wild-credit/" target="_blank">Docs</a>
+                <a class="menu-link" href="https://twitter.com/WildCredit" target="_blank">Twitter</a>
+                <a class="menu-link" href="https://discord.gg/emcBDpwf6G" target="_blank">Discord</a>
+                <a class="menu-link" href="https://t.me/WildCredit" target="_blank">Telegram</a>
+            </div>
+        </header>
+    </section>
+
+    <script>
+
+        import { router } from '@riotjs/route'
+        import Addresses from '../../common/contracts/Addresses.json'
+
+        export default {
+            state: {
+                vaultAddress: Addresses.ethVault
+            },
+            onMounted() {
+                router.on.value(path => {
+                    if (path.endsWith('/farm')) {
+                        this.deactivate("lending-nav")
+                        this.activate("farm-nav")
+                        this.deactivate("stake-nav")
+                        this.deactivate("vault-nav")
+                    } else if (path.endsWith('/vault')) {
+                        this.deactivate("lending-nav")
+                        this.deactivate("farm-nav")
+                        this.deactivate("stake-nav")
+                        this.activate("vault-nav")
+                    } else if (path.endsWith('/stake')) {
+                        this.deactivate("lending-nav")
+                        this.deactivate("farm-nav")
+                        this.activate("stake-nav")
+                        this.deactivate("vault-nav")
+                    } else if (path.includes('/vault')) {
+                        this.deactivate("lending-nav")
+                        this.deactivate("farm-nav")
+                        this.deactivate("stake-nav")
+                        this.activate("vault-nav")
+                    } else {
+                        this.activate("lending-nav")
+                        this.deactivate("farm-nav")
+                        this.deactivate("stake-nav")
+                        this.deactivate("vault-nav")
+                    }
+                })
+            },
+            activate(id) {
+                let tab = document.getElementById(id)
+                if (tab) {
+                    tab.classList.add("active")
+                }
+            },
+            deactivate(id) {
+                let tab = document.getElementById(id)
+                if (tab) {
+                    tab.classList.remove("active")
+                }
+            }
+        }
+    </script>
+</nav-bar>

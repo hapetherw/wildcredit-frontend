@@ -1,0 +1,179 @@
+<create-pair>
+
+    <section class="app-box" if={ !state.selectingBToken && !state.selectingAToken }>
+        <div class="topbar">
+            <i class="icon icon-arrow-left" onclick={ backToLendingPairs }></i>
+            <span class="title">Create Lending Pair</span>
+        </div>
+        <div class="app-box-form">
+            <div>
+                <div class="input-group">
+                    <span class="input-group-text input-group-text-left input-group-text-small selectable-input" onclick={ selectAToken } >{ state.tokenA.symbol }</span>
+                    <div class="plus-wrap">+</div>
+                    <span class="input-group-text input-group-text-right input-group-text-small selectable-input" onclick={ selectBToken }>{ tokenBSelectMessage() }</span>
+                </div>
+            </div>
+            <div
+                    if={ state.selectedPairAddress }
+                    class="pair-exists-message"
+            >
+                <label>The pair already exists</label>
+            </div>
+            <button
+                    if={ state.pairSupported && !state.selectedPairAddress }
+                    class="btn btn-block btn-primary"
+                    onclick={ createPair }
+            >
+                CREATE PAIR
+            </button>
+            <button
+                    if={ state.pairSupported && state.selectedPairAddress }
+                    class="btn btn-block btn-primary"
+                    onclick={ goToPair }
+            >
+                SHOW PAIR
+            </button>
+            <button
+                    if={ !state.pairSupported }
+                    class="btn btn-block btn-primary"
+            >
+                NOT SUPPORTED
+            </button>
+        </div>
+    </section>
+
+    <div id="token-selector">
+        <token-selector
+                tokenList={ props.tokenList }
+                backToTokenBox={ backToTokenBox }
+                setToken={ setToken }
+        />
+    </div>
+
+    <script>
+
+        import TokenSelector from '../tokenSelector/index.riot'
+        import { router } from "@riotjs/route";
+        import { accountAddress } from "../../common/web3/Wallet";
+        import { LendingPair } from "../../common/pairs/LendingPair";
+        import { BigNumber } from "bignumber.js";
+        import {Erc20Token} from "../../common/contracts/Erc20Token";
+        import {PriceOracleContract} from "../../common/contracts/PriceOracleContract";
+
+        export default {
+
+            state: {
+                selectingBToken: false,
+                selectingAToken: false,
+                selectedPairAddress: undefined,
+                priceOracle: new PriceOracleContract(),
+                pairSupported: true
+            },
+
+            components: {
+                TokenSelector
+            },
+
+            onBeforeMount() {
+                this.state.tokenA = this.props.tokenList.tokens[0]
+            },
+
+            onMounted() {
+                this.setTokenSelectorVisibility()
+            },
+
+            tokenBSelectMessage() {
+              if (this.state.tokenB) {
+                  return this.state.tokenB.symbol
+              } else {
+                  return "Select token"
+              }
+            },
+
+            async setToken(token) {
+                if (this.state.selectingAToken) {
+                    this.state.tokenA = token
+                    await this.backToTokenBox()
+                } else {
+                    this.state.tokenB = token
+                    await this.backToTokenBox()
+                }
+            },
+
+            async createPair() {
+                let pair =
+                    await this.props.lendingPairs.poolFactory.createPair(
+                        this.state.tokenA,
+                        this.state.tokenB,
+                        accountAddress
+                    )
+
+                let newPair = new LendingPair(pair)
+                await newPair.refresh(accountAddress, this.props.tokenList)
+
+                this.props.lendingPairs.pairs.push(newPair)
+
+                router.push(`/#/pair/${pair.address}`)
+            },
+
+            backToLendingPairs() {
+                this.state.tokenB = undefined
+                this.state.selectedPairAddress = undefined
+                this.state.pairSupported = true
+                router.push('/#')
+            },
+
+            selectAToken() {
+                this.update({ selectingAToken : true })
+                this.setTokenSelectorVisibility()
+            },
+
+            selectBToken() {
+                this.update({ selectingBToken : true })
+                this.setTokenSelectorVisibility()
+            },
+
+            async backToTokenBox() {
+                await this.setSelectedPairAddressIfAlreadyExists()
+                this.update({ selectingBToken: false, selectingAToken: false})
+                this.setTokenSelectorVisibility()
+            },
+
+            setTokenSelectorVisibility() {
+                if (this.state.selectingBToken || this.state.selectingAToken) {
+                    document.getElementById('token-selector').style.display = 'block'
+                } else {
+                    document.getElementById('token-selector').style.display = 'none'
+                }
+            },
+            async setSelectedPairAddressIfAlreadyExists() {
+
+                if (this.state.tokenB) {
+
+                    let tokenA = Erc20Token.getConvertedToken(this.state.tokenA, new BigNumber(0))
+                    let tokenB = Erc20Token.getConvertedToken(this.state.tokenB, new BigNumber(0))
+
+                    this.state.pairSupported =
+                        await this.state.priceOracle.isTokenSupported(tokenA) &&
+                        await this.state.priceOracle.isTokenSupported(tokenB)
+
+                    let pairs = await this.props.lendingPairs.poolFactory.createdPairs()
+
+                    let pair =
+                        pairs.find(p => {
+                            return (p.tokenA.address === tokenA.address && p.tokenB.address === tokenB.address)
+                                || (p.tokenA.address === tokenB.address && p.tokenB.address === tokenA.address)
+                        })
+
+                    this.update({ selectedPairAddress: pair ? pair.address : undefined })
+
+                }
+
+            },
+            goToPair() {
+                router.push(`/#/pair/${this.state.selectedPairAddress}`)
+            }
+        }
+    </script>
+
+</create-pair>

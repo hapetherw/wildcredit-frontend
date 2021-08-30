@@ -1,0 +1,169 @@
+<wild-credit>
+
+    <main>
+        <nav-bar/>
+        <div id="content">
+
+            <section class="menu-button-area">
+                <button class="menu-button" onclick={ toggleNavBar }>
+                    <i class="icon icon-menu"/>
+                </button>
+            </section>
+
+            <router>
+                <route path="/#/pair/:pairAddress">
+                    <lending-expand
+                            tokenList={ state.tokenList }
+                            lendingPairs={ state.lendingPairs }
+                            pairAddress={ route.params.pairAddress }
+                            showLendingPairs={ showLendingPairs }
+                    />
+                </route>
+                <route if={ this.xWildEnabled() }
+                        path="/#/stake"
+                >
+                    <stake
+                        stakingContract={ state.stakingContract }
+                        feeConverterContract={ state.feeConverterContract }
+                    />
+                </route>
+                <route if={ this.farmingEnabled() }
+                         path="/#/farm"
+                >
+                    <farm
+                        tokenList={state.tokenList}
+                        lendingPairs={ state.lendingPairs }
+                        farmingLpTokens={ state.farmingLpTokens }
+                        selectPair={ selectPair }
+                    />
+                </route>
+                <route path="/#/vaults">
+                    <vaults-view
+                        tokenList={ state.tokenList }
+                        vaults={ state.vaults }
+                    />
+                </route>
+                <route path="/#/vaults/:vaultAddress">
+                    <vault
+                        vaults={ state.vaults }
+                        vaultAddress={ route.params.vaultAddress }
+                    />
+                </route>
+                <route if={ this.activateFullFeatures() }
+                         path="/#/create-pair"
+                >
+                    <create-pair
+                            lendingPairs={ state.lendingPairs }
+                            tokenList={ state.tokenList }
+                    />
+                </route>
+                <route path="(/#|/)">
+                    <lending-pairs-view
+                            lendingPairs={ state.lendingPairs }
+                            selectPair={ selectPair }
+                    />
+                </route>
+            </router>
+        </div>
+
+    </main>
+
+    <script>
+        import NavBar from '../navbar/index.riot'
+        import LendingPairsView from '../lendingPairsView/index.riot'
+        import LendingExpand from '../lendingExpand/index.riot'
+        import Stake from '../stake/index.riot'
+        import Farm from '../farm/index.riot'
+        import Vault from '../vault/index.riot'
+        import CreatePair from '../createPair/index.riot'
+        import VaultsView from '../vaultsView/index.riot'
+        import { LendingPairs } from "../../common/pairs/LendingPairs";
+        import { accountAddress, initWallet } from '../../common/web3/Wallet'
+        import { Router, Route, setBase, router } from "@riotjs/route";
+        import { StakingContract } from "../../common/contracts/StakingContract";
+        import { TokenList } from "../../common/tokens/TokenList";
+        import { FeeConverter } from "../../common/contracts/FeeConverter";
+        import { FarmingToken } from "../../common/pairs/FarmingToken";
+        import { VaultContract } from "../../common/contracts/VaultContract";
+        import { Vaults } from "../../common/vaults/Vaults";
+
+        export default {
+            components: {
+                NavBar,
+                LendingPairsView,
+                LendingExpand,
+                Stake,
+                Farm,
+                Vault,
+                VaultsView,
+                CreatePair,
+                Route,
+                Router
+            },
+            state: {
+                tokenList: new TokenList(),
+                selectedPair: undefined,
+                lendingPairs: new LendingPairs(),
+                stakingContract: new StakingContract(),
+                feeConverterContract: new FeeConverter(),
+                farmingLpTokens: [],
+                vaults: new Vaults()
+            },
+            async onMounted() {
+                setBase(`/`)
+
+                let that = this
+
+                initWallet()
+                    .then(e => that.state.tokenList.updateTokenList())
+                    .then(e => that.state.lendingPairs.refresh(accountAddress, that.state.tokenList))
+                    .then(e => that.update())
+                    .then(e => this.state.vaults.refresh(accountAddress))
+                    .then(e => that.update())
+                    .then(e => that.initFarmingLpTokens())
+                    .then(e => that.update())
+                    .then(e => that.state.stakingContract.refresh(accountAddress))
+                    .then(e => that.update())
+                    .then(e => that.state.feeConverterContract.refresh())
+                    .then(e => that.update())
+
+            },
+            showLendingPairs() {
+                router.push(`/#`)
+            },
+            selectPair(pair) {
+                router.push(`/#/pair/${pair.contract.address}`)
+            },
+            toggleNavBar() {
+                let navbar = document.getElementById("navbar")
+                if (navbar) {
+                    if (navbar.style.visibility !== 'visible') {
+                        navbar.style.visibility = 'visible';
+                        navbar.style.left = '0px';
+                    } else {
+                        navbar.style.visibility = 'hidden';
+                        navbar.style.left = '-251px';
+                    }
+                }
+            },
+            async initFarmingLpTokens() {
+                try {
+                    let uniLp = new FarmingToken({
+                        address: "0xc36068bf159414beb497f8ece08763868149b2fe",
+                        symbol: "WILD-ETH Uniswap",
+                        decimals: 18
+                    }, "https://v2.info.uniswap.org/pair/0xc36068bf159414beb497f8ece08763868149b2fe")
+
+                    await uniLp.refresh(accountAddress)
+
+                    this.state.farmingLpTokens = [
+                        uniLp
+                    ]
+                } catch (e) {
+                    console.error("Failed to initialize Uni farming tokens")
+                }
+            }
+        }
+    </script>
+
+</wild-credit>

@@ -1,0 +1,136 @@
+<stake>
+
+    <section class="app-area">
+        <div class="app-content-box">
+            <div class="title">Staking</div>
+            <p class="info-text">Stake WILD to get xWILD and earn protocol fees. Fees are not accrued in real-time and happen once every 1-3 days or so.</p>
+            <div class="wallet-box-wrapper">
+                <div class="wallet-box-item">
+                    <div class="box-group">
+                        <div class="box-group-item">
+                            <div class="box-top">APR</div>
+                            <div class="box-bottom">{ formatAPR() }</div>
+                        </div>
+                        <div class="box-group-item">
+                            <div class="box-top">xWILD wallet</div>
+                            <div class="box-bottom">{ this.formatNumber(props.stakingContract.xWildUserBalance) }</div>
+                        </div>
+                    </div>
+                    <div class="app-box">
+                        <div class="app-box-form">
+                            <div>
+                                <div class="form-wrap-titles">
+                                    <label>Stake amount</label>
+                                    <label class="form-wrap-max-button" onclick={ setMaxStakeAmount }>Max</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="number" id="stake-wild-input" oninput={ setStakeAmount } step="{this.formatDecimalLimit(18)}">
+                                    <span class="input-group-text input-group-text-small">WILD</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-block btn-primary"
+                                    onclick={ stake }
+                            >
+                                STAKE
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="wallet-box-item">
+                    <div class="box-group">
+                        <div class="box-group-item">
+                            <div class="box-top">WILD wallet</div>
+                            <div class="box-bottom">{ this.formatNumber(props.stakingContract.wildUserBalance) }</div>
+                        </div>
+                        <div class="box-group-item">
+                            <div class="box-top">WILD redeemable</div>
+                            <div class="box-bottom">{ this.formatNumber(props.stakingContract.stakedWildBalance) }</div>
+                        </div>
+                    </div>
+                    <div class="app-box">
+                        <div class="app-box-form">
+                            <div>
+                                <div class="form-wrap-titles">
+                                    <label>Unstake amount</label>
+                                    <label class="form-wrap-max-button" onclick={ setMaxUnstakeAmount }>Max</label>
+                                </div>
+                                <div class="input-group">
+                                    <input type="number" id="unstake-wild-input" oninput={ setUnstakeAmount } step="{this.formatDecimalLimit(18)}">
+                                    <span class="input-group-text input-group-text-small">xWILD</span>
+                                </div>
+                            </div>
+                            <button class="btn btn-block btn-primary"
+                                    onclick={ unstake }
+                            >
+                                UNSTAKE
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+
+        import {accountAddress} from "../../common/web3/Wallet";
+        import {BigNumber} from "bignumber.js";
+
+        export default {
+            state: {
+                stakeAmount: new BigNumber(NaN),
+                unStakeAmount: new BigNumber(NaN)
+            },
+            setStakeAmount(e) {
+                this.state.stakeAmount = new BigNumber(e.target.value)
+            },
+            setUnstakeAmount(e) {
+                this.state.unStakeAmount = new BigNumber(e.target.value)
+            },
+            async stake() {
+                await this.props.stakingContract.deposit(this.state.stakeAmount, accountAddress)
+                await this.props.stakingContract.refresh(accountAddress)
+                await this.resetInputs()
+            },
+            async unstake() {
+                await this.props.stakingContract.withdraw(this.state.unStakeAmount, accountAddress)
+                await this.resetInputs()
+            },
+            formatAPR() {
+                let apr =
+                    this.props.feeConverterContract.annualWildRewards
+                        .dividedBy(this.props.stakingContract.xWildContactWildBalance)
+                        .multipliedBy(100)
+
+                if (apr.isNaN() || !apr.isFinite()) {
+                    return 'N/A'
+                }
+
+                return `${this.formatNumber(apr, 2)}%`
+
+            },
+            async resetInputs() {
+
+                await this.props.stakingContract.refresh(accountAddress)
+
+                this.state.stakeAmount = new BigNumber(NaN)
+                this.state.unStakeAmount = new BigNumber(NaN)
+
+                document.getElementById("stake-wild-input").value = null
+                document.getElementById("unstake-wild-input").value = null
+
+                this.update()
+            },
+            setMaxStakeAmount() {
+                this.state.stakeAmount = this.props.stakingContract.wildUserBalance
+                document.getElementById("stake-wild-input").value = this.state.stakeAmount.toString(10)
+            },
+            setMaxUnstakeAmount() {
+                this.state.unStakeAmount = this.props.stakingContract.xWildUserBalance
+                document.getElementById("unstake-wild-input").value = this.state.unStakeAmount.toString(10)
+            }
+        }
+
+    </script>
+
+</stake>

@@ -1,0 +1,118 @@
+<token-selector>
+
+    <section class="app-box">
+        <div class="topbar">
+            <i class="icon icon-arrow-left" onclick={ props.backToTokenBox }></i>
+            <span>Select token</span>
+        </div>
+        <div class="search-content">
+            <input class="input-small" type="text" name="search" placeholder="Search symbol" oninput={ filterAndSortTokensOnInput }>
+            <ul class="list">
+                <li>
+                    <span>Asset</span>
+                    <span>Wallet balance</span>
+                </li>
+                <li  each={ token in state.sortedTokens }
+                     key={ token.address }
+                     onclick={ () => props.setToken(token) }
+                >
+                    <span>
+                        <img class="icon"
+                               src={ fetchTokenLogoURI(token) }
+                               onerror={ changeLogoToDefault }
+                    /> { token.symbol }
+                    </span>
+                    <span>{ this.formatNumber(token.balance) }</span>
+                </li>
+            </ul>
+        </div>
+    </section>
+
+    <script>
+        import { accountAddress } from "../../common/web3/Wallet";
+        import QuestionLogo from "../../assets/images/question_mark.svg"
+
+        export default {
+            config: {
+                tokenListMaxDisplaySize: 100,
+                addressRegEx: new RegExp("0x[0-9a-zA-Z]{40}")
+            },
+            state: {
+                sortedTokens: [],
+                tokenListInitialized: false,
+                balancesSynchroHandle: 0,
+                inputFilter: null
+            },
+            onMounted() {
+                this.filterAndSortTokens(null)
+                this.update()
+                this.props.tokenList.registerForTokenUpdates(this)
+            },
+            onBeforeUpdate() {
+                if (this.props.tokenList.tokens.length > this.config.tokenListMaxDisplaySize && !this.state.tokenListInitialized) {
+                    this.filterAndSortTokens()
+                    this.state.tokenListInitialized = true
+                }
+            },
+            onTokenUpdates(token) {
+                if (token.balance.isGreaterThan(0)) {
+                    this.filterAndSortTokens()
+                    this.update()
+                }
+            },
+            filterAndSortTokensOnInput(e) {
+                this.state.inputFilter = e.target.value === '' ? null : e.target.value
+                this.filterAndSortTokens()
+                this.update()
+            },
+            filterAndSortTokens() {
+                let that = this
+                let formattedFilter = this.state.inputFilter === null ? null : this.state.inputFilter.toLowerCase()
+
+                if (formattedFilter !== null &&
+                    formattedFilter.match(this.config.addressRegEx) &&
+                    (this.props.tokenList.findTokenWithAddress(formattedFilter) === undefined)
+                ) {
+                    this.props.tokenList.addTokenWithAddress(formattedFilter, accountAddress)
+                } else {
+                    let filteredTokens =
+                        this.props.tokenList.tokens
+                            .filter(function(x) {
+                                return formattedFilter == null ||
+                                    x.symbol.toLowerCase().startsWith(formattedFilter) ||
+                                    (formattedFilter.match(that.config.addressRegEx) && x.address.startsWith(formattedFilter))
+                            })
+
+                    this.state.sortedTokens =
+                        this.sortTokens(filteredTokens, formattedFilter)
+                            .splice(0, this.config.tokenListMaxDisplaySize)
+                }
+            },
+            sortTokens(tokens, value) {
+                let that = this
+                return tokens.sort(function(a, b) {
+                    if (a.balance.gt(0) || b.balance.gt(0)) {
+                        return b.balance.minus(a.balance).toNumber()
+                    } else if (value === null) {
+                        return a.symbol.localeCompare(b.symbol, 'en', { sensitivity: 'base' })
+                    } else if (value.match(that.config.addressRegEx)) {
+                        return a.address.localeCompare(value, 'en', { sensitivity: 'base' })
+                    } else {
+                        return a.symbol.localeCompare(value, 'en', { sensitivity: 'base' })
+                    }
+                })
+            },
+            fetchTokenLogoURI(token) {
+                if (token.logoURI !== undefined) {
+                    return token.logoURI
+                } else {
+                    return QuestionLogo
+                }
+            },
+            changeLogoToDefault(e) {
+                e.target.setAttribute("src", QuestionLogo)
+            },
+        }
+    </script>
+
+</token-selector>

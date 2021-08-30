@@ -1,0 +1,118 @@
+<lending-pairs-view>
+
+	<section class="app-area lending-pairs-view">
+		<div class="app-content-box">
+			<div class="title-section">
+				<div class="table-caption title">Top Lending Pairs</div>
+				<div class="total-reserve">
+					<div class="total-reserve-title">Total Utilization: </div>
+					<div>{ this.totalUtilization() }</div>
+				</div>
+			</div>
+			<p class="info-text">Deposit single sided liquidity (not LP) into any pair to earn interest. Use your deposit as collateral to borrow and earn additional WILD rewards.</p>
+			<div class="action-wrapper">
+				<input if={ this.activateFullFeatures() } class="input-default" type="text" name="" placeholder="Search asset"/>
+				<button if={ this.activateFullFeatures() } class="btn btn-default" onclick={ redirectToCreatePair }>CREATE PAIR</button>
+			</div>
+			<div class="app-wrapper">
+				<table>
+
+					<!-- TABLE HEADER -->
+					<tr class="header">
+						<th class="col-20">Pair</th>
+						<th class="col-20">Reserves</th>
+						<th class="col-15">Claimable</th>
+						<th class="col-15">My supplied</th>
+						<th class="col-15">My borrowed</th>
+						<th class="col-15">Ratio</th>
+					</tr>
+
+					<!-- EMPTY ROWS ANIMATION -->
+					<tr class="loader-row" each={ nothing in Array(3) } if={ props.lendingPairs.pairs.length === 0 }>
+						<td class="loader-box"></td>
+					</tr>
+
+					<!-- TABLE DATA -->
+					<tr
+						class="clickable"
+						each={ lendingPair in props.lendingPairs.pairs.sort((a,b) => b.usdReserve.minus(a.usdReserve).toNumber()) }
+						key={ lendingPair.contract.address }
+						onclick={ () => this.props.selectPair(lendingPair) }
+					>
+						<td class="loader-box loader-row" if={ !this.isReadyForDisplay(lendingPair) } />
+						<td class="col-20"
+							if={ this.isReadyForDisplay(lendingPair) }
+						>
+							{ lendingPair.tokenA.displaySymbol() }-{ lendingPair.tokenB.displaySymbol() }
+						</td>
+						<td class="col-20" if={ this.isReadyForDisplay(lendingPair) }>${ this.moneyFormat(lendingPair.usdReserve) }</td>
+						<td class="col-15" if={ this.isReadyForDisplay(lendingPair) }>
+							{ this.moneyFormat(lendingPair.tokenA.pendingTotalReward.plus(lendingPair.tokenB.pendingTotalReward)) }
+						</td>
+						<td class="col-15" if={ this.isReadyForDisplay(lendingPair) }>${ this.moneyFormat(lendingPair.usdSupplied) }</td>
+						<td class="col-15" if={ this.isReadyForDisplay(lendingPair) }>${ this.moneyFormat(lendingPair.usdDebt) }</td>
+						<td class="col-15" if={ this.isReadyForDisplay(lendingPair) }>{ this.formatSafetyRatio(lendingPair.safetyRatio) }</td>
+					</tr>
+				</table>
+			</div>
+		</div>
+	</section>
+
+	<script>
+		import {router} from "@riotjs/route";
+		import BigNumber from "bignumber.js";
+		import { accountAddress } from "../../common/web3/Wallet";
+
+		export default {
+
+			redirectToCreatePair() {
+				router.push('/#/create-pair')
+			},
+
+			isReadyForDisplay(pair) {
+				return !pair.usdReserve.isNaN()
+			},
+
+			totalUtilization() {
+				if (this.props.lendingPairs.pairs.length === 0) {
+					return 'Loading...'
+				}
+
+				const totalUsdDebt = this.props.lendingPairs.pairs.map(p => p.usdTotalDebt).reduce((a, b) => a.plus(b))
+				const totalUsdSupply = this.props.lendingPairs.pairs.map(p => p.usdTotalSupply).reduce((a, b) => a.plus(b))
+				const totalUtilizationRatio = this.formatPercentage((totalUsdDebt/totalUsdSupply) * 100)
+
+				return `$${this.moneyFormat(totalUsdDebt)} / ${this.moneyFormat(totalUsdSupply)} (${totalUtilizationRatio})`
+			},
+
+			supplyApr(pair) {
+				let max = BigNumber.max(pair.tokenA.supplyApr, pair.tokenB.supplyApr)
+
+				if (max.isNaN() && !pair.tokenA.supplyApr.isNaN()) {
+					return pair.tokenA.supplyApr
+				}
+
+				if (max.isNaN() && !pair.tokenB.supplyApr.isNaN()) {
+					return pair.tokenB.supplyApr
+				}
+
+				return max
+			},
+
+			borrowApr(pair) {
+				let max = BigNumber.max(pair.tokenA.borrowApr, pair.tokenB.borrowApr)
+
+				if (max.isNaN() && !pair.tokenA.borrowApr.isNaN()) {
+					return pair.tokenA.borrowApr
+				}
+
+				if (max.isNaN() && !pair.tokenB.borrowApr.isNaN()) {
+					return pair.tokenB.borrowApr
+				}
+
+				return max
+			}
+		}
+	</script>
+
+</lending-pairs-view>

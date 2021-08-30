@@ -1,0 +1,198 @@
+<farm>
+
+	<section class="app-area">
+		<div class="app-content-box">
+			<div class="title">Farming</div>
+			<div class="action-wrapper">
+				<div></div>
+				<!--input class="input-default" type="text" name="" placeholder="Search asset"-->
+				<div class="box-group-wrapper">
+				</div>
+			</div>
+
+			<div if={ showNonUniFarms } class="app-wrapper">
+
+				<table>
+
+					<tr class="header">
+						<th class="col-10">Asset</th>
+						<th class="col-10">Pair</th>
+						<th class="col-10">APR</th>
+						<th class="col-15">My supplied</th>
+						<th class="col-15">My staked</th>
+						<th class="col-10">Claimable</th>
+						<th class="col-30">&nbsp;</th>
+					</tr>
+
+					<tr class="loader-row" each={ nothing in Array(3) } if={ state.farmTokens.length === 0 }>
+						<td class="loader-box"></td>
+					</tr>
+
+					<tr
+						each={ (farm, index) in state.farmTokens.sort((a,b) => b.token.apr.minus(a.token.apr).toNumber()) }
+						key="{ farm.pairId }-{ farm.token.address }"
+					>
+						<td class="col-10 clickable" onclick={ (e) => props.selectPair(farm.pair) }><span class="asset-icon">{ farm.token.displaySymbol() }</span></td>
+						<td class="col-10 clickable" onclick={ (e) => props.selectPair(farm.pair) }><span class="dark-text">{ farm.pairId }</span></td>
+						<td class="col-10">{ this.formatPercentage(farm.token.apr) }</td>
+						<td class="col-15">{ this.formatNumber(farm.token.baseSupplied) }</td>
+						<td class="col-15">{ this.formatNumber(stakedAmount(farm.token)) }</td>
+						<td class="col-10">{ this.formatNumber(farm.token.claimAmount) }</td>
+						<td class="col-30 text-right">
+							<span class="text-underline clickable" onclick={ (e) => props.selectPair(farm.pair) }>SUPPLY</span>
+
+							{ !farm.token.baseSupplied.isZero() && !isNaN(farm.token.tokenStakingPoolId) ? ' / ' : '' }
+							<span class="text-underline clickable"
+								  if={ !farm.token.baseSupplied.isZero() && !isNaN(farm.token.tokenStakingPoolId)}
+								  onclick={ (e) => stake(farm.token) }
+							>STAKE</span>
+
+							{ !stakedAmount(farm.token).isZero() ? ' / ' : '' }
+							<span class="text-underline clickable"
+								  if={ !stakedAmount(farm.token).isZero() }
+								  onclick={ (e) => unStake(farm.token) }
+							>UNSTAKE</span>
+
+							{ !farm.token.claimAmount.isZero() ? ' / ' : '' }
+							<span class="text-underline clickable"
+								  if={ !farm.token.claimAmount.isZero() }
+								  onclick={ (e) => claim(farm.token) }
+							>CLAIM</span>
+						</td>
+					</tr>
+
+				</table>
+			</div>
+
+			<div class="app-wrapper uniswap-lp-section">
+				<table>
+					<!-- TABLE HEADER -->
+					<tr class="header">
+						<th class="col-20">Asset</th>
+						<th class="col-10">APR</th>
+						<th class="col-15">My supplied</th>
+						<th class="col-15">My staked</th>
+						<th class="col-10">Claimable</th>
+						<th class="col-30">&nbsp;</th>
+					</tr>
+
+					<!-- EMPTY ROWS ANIMATION -->
+					<tr class="loader-row" each={ nothing in Array(3) } if={ props.farmingLpTokens.length === 0 }>
+						<td class="loader-box"></td>
+					</tr>
+
+					<!-- TABLE DATA -->
+					<tr
+							each={ (farm, index) in props.farmingLpTokens.sort((a,b) => b.token.apr.minus(a.token.apr).toNumber()) }
+							key="{ farm.address }"
+					>
+						<td class="col-20">{ farm.displaySymbol() }</td>
+						<td class="col-10">{ this.formatPercentage(farm.apr) }</td>
+						<td class="col-15">{ this.formatNumber(farm.baseSupplied) }</td>
+						<td class="col-15">{ this.formatNumber(stakedAmount(farm)) }</td>
+						<td class="col-10">{ this.formatNumber(farm.claimAmount) }</td>
+						<td class="col-30 text-right">
+							<a class="text-underline clickable" href={farm.url} target="_blank" }>SUPPLY</a>
+
+							{ !farm.baseSupplied.isZero() && !isNaN(farm.tokenStakingPoolId) ? ' / ' : '' }
+							<span class="text-underline clickable"
+								  if={ !farm.baseSupplied.isZero() && !isNaN(farm.tokenStakingPoolId)}
+								  onclick={ (e) => stake(farm) }
+							>STAKE</span>
+
+							{ !stakedAmount(farm).isZero() ? ' / ' : '' }
+							<span class="text-underline clickable"
+								  if={ !stakedAmount(farm).isZero() }
+								  onclick={ (e) => unStake(farm) }
+							>UNSTAKE</span>
+
+							{ !farm.claimAmount.isZero() ? ' / ' : '' }
+							<span class="text-underline clickable"
+								  if={ !farm.claimAmount.isZero() }
+								  onclick={ (e) => claim(farm) }
+							>CLAIM</span>
+						</td>
+					</tr>
+
+				</table>
+			</div>
+
+		</div>
+	</section>
+
+	<script>
+		import { accountAddress } from "../../common/web3/Wallet";
+		import { FarmingPoolContract } from "../../common/contracts/FarmingPoolContract";
+		import { BigNumber } from "bignumber.js";
+		import { FarmingToken } from "../../common/pairs/FarmingToken";
+
+		export default {
+			state: {
+				farmTokens: [],
+				showNonUniFarms: false,
+				farmingContract: new FarmingPoolContract()
+			},
+			onBeforeMount() {
+				this.buildFarms()
+			},
+			onBeforeUpdate() {
+				this.buildFarms()
+			},
+			async stake(token) {
+				await this.state.farmingContract.stake(
+						token.tokenStakingPoolId,
+						token,
+						token.baseSupplied,
+						accountAddress
+				)
+				await token.refresh(accountAddress, this.props.tokenList)
+				this.update()
+			},
+			async unStake(token) {
+				await this.state.farmingContract.unStake(
+						token.tokenStakingPoolId,
+						token,
+						this.stakedAmount(token),
+						accountAddress
+				)
+				await token.refresh(accountAddress, this.props.tokenList)
+				this.update()
+			},
+			stakedAmount(token) {
+				if (token.userInfo === undefined || isNaN(token.userInfo.amount)) {
+					return new BigNumber(0)
+				}
+
+				return new BigNumber(token.userInfo.amount).dividedBy(10 ** token.decimals)
+			},
+			async claim(token) {
+				await this.state.farmingContract.claim(token.tokenStakingPoolId, accountAddress)
+				await token.refresh(accountAddress, this.props.tokenList)
+				this.update()
+			},
+			buildFarms() {
+
+				this.state.farmTokens = []
+
+				for (let i = 0; i < this.props.lendingPairs.pairs.length; i++) {
+					let pair = this.props.lendingPairs.pairs[i]
+					if (!isNaN(pair.tokenA.tokenStakingPoolId)) {
+						this.state.farmTokens.push({
+							pair: pair,
+							pairId: `${ pair.tokenA.displaySymbol() }-${ pair.tokenB.displaySymbol() }`,
+							token: pair.tokenA
+						})
+					}
+					if (!isNaN(pair.tokenB.tokenStakingPoolId)) {
+						this.state.farmTokens.push({
+							pair: pair,
+							pairId: `${ pair.tokenA.displaySymbol() }-${ pair.tokenB.displaySymbol() }`,
+							token: pair.tokenB
+						})
+					}
+				}
+			}
+		}
+	</script>
+
+</farm>

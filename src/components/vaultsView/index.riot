@@ -1,0 +1,87 @@
+<vaults-view>
+
+    <section class="app-area">
+        <div class="app-content-box">
+            <div class="title">Vaults</div>
+            <div class="info-text">Vaults auto-rebalance funds into selected lending pairs for the best yield.</div>
+        </div>
+
+        <div class="app-wrapper">
+            <table>
+                <tr class="header">
+                    <th class="col-20">Asset</th>
+                    <th class="col-20">Reserves</th>
+                    <th class="col-20">APR</th>
+                    <th class="col-20">My supplied</th>
+                    <!--<th class="col-15">Claimable</th>
+                    <th class="col-10">&nbsp;</th>-->
+                    <th class="col-20">&nbsp;</th>
+                </tr>
+
+                <tr class="loader-row" each={ nothing in Array(3) } if={ props.vaults.vaults.length === 0 }>
+                    <td class="loader-box"></td>
+                </tr>
+
+                <tr
+                    each={ vault in props.vaults.vaults }
+                    key={ vault.address }
+                >
+                    <td class="col-20 vault-asset-icon">
+                        <img src={assetSymbol(vault.token.address)} />
+                        <span>{ vault.token.displaySymbol() }</span>
+                    </td>
+                    <td class="col-20">${ this.moneyFormat(vault.reserves) }</td>
+                    <td class="col-20">{ this.formatNumber(vault.apr) }%</td>
+                    <td class="col-20">{ this.formatNumber(vault.vaultBalance) } <span class="dark-text">{ vault.token.displaySymbol() }</span></td>
+                    <!--<td class="col-15">{ this.formatNumber(vault.claimableBalance) }</td>
+                    <td
+                        class="col-10 text-underline clickable"
+                        onclick={ () => claim(vault.address) }
+                    >
+                        CLAIM
+                    </td>-->
+                    <td
+                        class="col-20 text-underline text-right clickable"
+                        onclick={ () => supply(vault.address) }
+                    >
+                        SUPPLY
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </section>
+
+    <script>
+        import {accountAddress} from "../../common/web3/Wallet"
+        import Addresses from "../../common/contracts/Addresses.json"
+        import ethLogo from "../../assets/images/ethereum-logo.png"
+        import {router} from "@riotjs/route"
+
+        export default {
+            async claim(address) {
+                const vault = this.props.vaults.find(address)
+                if (vault) {
+                    await vault.contract.claim(accountAddress)
+                    await vault.refresh(accountAddress)
+                }
+            },
+            assetSymbol(address) {
+                if (this.props.tokenList) {
+                    const token = this.props.tokenList.tokens.find(
+                        token => token.address.toLowerCase() === address.toLowerCase()
+                    )
+
+                    if (Addresses.weth.toLowerCase() === token.address.toLowerCase()) {
+                        return ethLogo
+                    } else {
+                        return token.logoURI ? token.logoURI : ''
+                    }
+                }
+            },
+            async supply(address) {
+                router.push(`/#/vaults/${address}`)
+            }
+        }
+    </script>
+
+</vaults-view>
